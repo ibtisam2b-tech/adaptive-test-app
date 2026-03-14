@@ -1,93 +1,65 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 
-# 1. إعدادات الصفحة ودعم اللغة العربية (RTL)
-st.set_page_config(page_title="نظام الاختبار التكيفي", layout="centered")
-st.markdown("""
-    <style>
-    .stApp {text-align: right; direction: rtl;}
-    div[role="radiogroup"] {direction: rtl;}
-    </style>
-    """, unsafe_allow_html=True)
+# إعدادات الواجهة العربية
+st.set_page_config(page_title="الاختبار التكيفي", layout="centered")
+st.markdown("<style>.stApp {text-align: right; direction: rtl;}</style>", unsafe_allow_html=True)
 
-# 2. دالة تحميل الأسئلة (طريقة الرابط المباشر لتجنب الأخطاء)
+# الرابط المباشر (ضع الرابط الذي جهزته هنا)
+CSV_URL = "https://docs.google.com/spreadsheets/d/1-66zj3hjoWeXhrNUk-gPhZjC3mWHDDemSzcwtb7fqyQ/export?format=csv"
+
 @st.cache_data(ttl=60)
-def load_questions():
+def load_data():
     try:
-        # جلب الرابط من Secrets
-        raw_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        # تحويل الرابط لصيغة تصدير CSV مباشرة
-        csv_url = raw_url.replace("/edit?usp=sharing", "/export?format=csv&gid=0")
-        return pd.read_csv(csv_url)
+        return pd.read_csv(CSV_URL)
     except Exception as e:
-        st.error(f"فشل الاتصال بجدول البيانات: {e}")
+        st.error(f"خطأ في قراءة البيانات: {e}")
         return pd.DataFrame()
 
-# 3. تهيئة متغيرات الجلسة
+# تهيئة الجلسة
 if 'level' not in st.session_state:
     st.session_state.level = 2
     st.session_state.score = 0
     st.session_state.q_count = 0
     st.session_state.finished = False
 
-# القائمة الجانبية
-menu = st.sidebar.selectbox("القائمة الرئيسية", ["خوض الاختبار", "لوحة تحكم المعلم"])
+st.title("🎯 الاختبار التكيفي الذكي")
 
-if menu == "خوض الاختبار":
-    st.title("📝 الاختبار التكيفي الذكي")
-    
-    df_questions = load_questions()
+df = load_data()
 
-    if not df_questions.empty:
-        if not st.session_state.finished:
-            # تصفية الأسئلة حسب المستوى
-            current_pool = df_questions[df_questions['level'] == st.session_state.level]
+if not df.empty:
+    if not st.session_state.finished:
+        # تصفية الأسئلة حسب المستوى الحالي
+        current_pool = df[df['level'] == st.session_state.level]
+        
+        if not current_pool.empty:
+            # اختيار سؤال
+            q_row = current_pool.sample(n=1).iloc[0]
+            st.subheader(f"السؤال {st.session_state.q_count + 1}")
+            st.info(q_row['question'])
             
-            if not current_pool.empty:
-                question_row = current_pool.sample(n=1).iloc[0]
+            options = [str(q_row['option1']), str(q_row['option2']), str(q_row['option3']), str(q_row['option4'])]
+            
+            with st.form(key='quiz'):
+                choice = st.radio("اختر الإجابة:", options)
+                submit = st.form_submit_button("إرسال")
+            
+            if submit:
+                if str(choice).strip() == str(q_row['answer']).strip():
+                    st.success("صح!")
+                    st.session_state.score += 1
+                    if st.session_state.level < 3: st.session_state.level += 1
+                else:
+                    st.error(f"خطأ! الإجابة هي: {q_row['answer']}")
+                    if st.session_state.level > 1: st.session_state.level -= 1
                 
-                st.write(f"### السؤال رقم: {st.session_state.q_count + 1}")
-                st.info(question_row['question'])
-                
-                options = [
-                    str(question_row['option1']), 
-                    str(question_row['option2']), 
-                    str(question_row['option3']), 
-                    str(question_row['option4'])
-                ]
-                
-                with st.form(key='quiz_form'):
-                    user_choice = st.radio("اختر الإجابة الصحيحة:", options)
-                    submit = st.form_submit_button("إرسال الإجابة")
-
-                if submit:
-                    if str(user_choice).strip() == str(question_row['answer']).strip():
-                        st.success("✅ إجابة صحيحة!")
-                        st.session_state.score += 1
-                        if st.session_state.level < 3: st.session_state.level += 1
-                    else:
-                        st.error(f"❌ إجابة خاطئة. الإجابة هي: {question_row['answer']}")
-                        if st.session_state.level > 1: st.session_state.level -= 1
-                    
-                    st.session_state.q_count += 1
-                    if st.session_state.q_count >= 5: # عدد الأسئلة
-                        st.session_state.finished = True
-                    st.rerun()
-            else:
-                st.warning("لا توجد أسئلة كافية لهذا المستوى.")
-        else:
-            st.balloons()
-            st.header("🎊 انتهى الاختبار!")
-            st.write(f"درجتك النهائية: **{st.session_state.score}** من 5")
-            if st.button("إعادة الاختبار"):
-                st.session_state.clear()
+                st.session_state.q_count += 1
+                if st.session_state.q_count >= 5: st.session_state.finished = True
                 st.rerun()
-
-elif menu == "لوحة تحكم المعلم":
-    st.title("📊 لوحة تحكم المعلم")
-    pwd = st.sidebar.text_input("كلمة المرور", type="password")
-    if pwd == "1234":
-        st.write("هنا تظهر نتائج الطلاب عند ربط ورقة النتائج (Results).")
     else:
-        st.warning("أدخل كلمة المرور الصحيحة.")
+        st.balloons()
+        st.header("النتيجة النهائية")
+        st.write(f"درجتك: {st.session_state.score} من 5")
+        if st.button("إعادة"):
+            st.session_state.clear()
+            st.rerun()
