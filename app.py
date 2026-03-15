@@ -2,9 +2,99 @@ import streamlit as st
 import pandas as pd
 import random
 
-# 1. إعدادات الصفحة
+# 1. إعدادات الصفحة والتنسيقات (CSS)
 st.set_page_config(page_title="نظام الاختبار الذكي", layout="centered")
-st.markdown("<style>.stApp {text-align: right; direction: rtl;}</style>", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+    /* جعل التطبيق يدعم اللغة العربية من اليمين لليسار */
+    .stApp {text-align: right; direction: rtl;}
+
+    /* إخفاء قائمة Streamlit الرئيسية والتذييل والرأس */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* تنسيق العنوان الرئيسي */
+    h1 {
+        color: #2c3e50; /* لون أزرق غامق */
+        font-size: 2.5em;
+        text-align: center;
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #ecf0f1; /* خلفية رمادية فاتحة */
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+
+    /* تنسيق اسم المُعد */
+    .author-name {
+        font-style: italic;
+        color: #7f8c8d; /* لون رمادي متوسط */
+        font-size: 1.1em;
+        text-align: center;
+        margin-top: -15px;
+        margin-bottom: 30px;
+    }
+
+    /* تنسيق صندوق السؤال (st.info) */
+    .stAlert.stAlert--info {
+        background-color: #e8f4f8; /* خلفية زرقاء فاتحة */
+        border-left: 6px solid #3498db; /* شريط أزرق على اليسار */
+        border-radius: 8px;
+        padding: 20px;
+        font-size: 1.2em;
+        color: #2c3e50;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        margin-bottom: 25px;
+    }
+
+    /* تنسيق أزرار الراديو (الخيارات) */
+    .stRadio > label {
+        font-size: 1.1em;
+        color: #34495e; /* لون نص الخيار */
+        margin-bottom: 10px;
+    }
+
+    /* تنسيق زر الإرسال */
+    .stButton > button {
+        background-color: #28a745; /* لون أخضر */
+        color: white;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-size: 1.1em;
+        border: none;
+        transition: background-color 0.3s ease;
+    }
+
+    .stButton > button:hover {
+        background-color: #218838; /* لون أخضر أغمق عند التحويم */
+    }
+
+    /* تنسيق رسائل النجاح والخطأ */
+    .stAlert.stAlert--success {
+        background-color: #d4edda;
+        color: #155724;
+        border-color: #c3e6cb;
+    }
+
+    .stAlert.stAlert--error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border-color: #f5c6cb;
+    }
+
+    /* تنسيق النتائج النهائية */
+    .stMetric {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+</style>
+""", unsafe_allow_html=True)
 
 # 2. الرابط المباشر - تأكد من وضع رابط CSV الصحيح هنا
 CSV_URL = "https://docs.google.com/spreadsheets/d/1-66zj3hjoWeXhrNUk-gPhZjC3mWHDDemSzcwtb7fqyQ/export?format=csv"
@@ -52,7 +142,7 @@ if 'init' not in st.session_state:
     st.session_state.current_q = None # السؤال الحالي (لمنع التكرار العشوائي)
 
 st.title("🎯 اختبار تكيّفي ذكي")
-st.markdown("**إعداد:** ابتسام التوبي")
+st.markdown("<p class='author-name'><b>إعداد:</b> ابتسام التوبي</p>", unsafe_allow_html=True)
 
 df = load_data()
 
