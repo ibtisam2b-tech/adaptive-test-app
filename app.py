@@ -6,7 +6,7 @@ st.set_page_config(page_title="نظام الاختبار التكيفي", layout
 st.markdown("""<style>.stApp {text-align: right; direction: rtl;}</style>""", unsafe_allow_html=True)
 
 # 2. الرابط المباشر لجدول البيانات
-CSV_URL = "ضع_رابطك_هنا_بصيغة_export?format=csv"
+CSV_URL = "https://docs.google.com/spreadsheets/d/1-66zj3hjoWeXhrNUk-gPhZjC3mWHDDemSzcwtb7fqyQ/export?format=csv"
 
 @st.cache_data(ttl=5) # تحديث البيانات كل 5 ثوانٍ لضمان عدم التعليق
 def get_data(url):
