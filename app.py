@@ -52,6 +52,7 @@ if 'init' not in st.session_state:
     st.session_state.current_q = None # السؤال الحالي (لمنع التكرار العشوائي)
 
 st.title("🎯 اختبار تكيّفي ذكي")
+st.markdown("**إعداد:** ابتسام التوبي")
 
 df = load_data()
 
