@@ -1,91 +1,99 @@
 import streamlit as st
 import pandas as pd
-import random
 
-# 1. إعدادات الصفحة
-st.set_page_config(page_title="الاختبار التكيفي النهائي", layout="centered")
+# 1. إعدادات الصفحة والواجهة
+st.set_page_config(page_title="نظام الاختبار التكيفي", layout="centered")
 st.markdown("""<style>.stApp {text-align: right; direction: rtl;}</style>""", unsafe_allow_html=True)
 
-# 2. الرابط المباشر (تأكد من وضع رابطك المعدل بـ export?format=csv)
-CSV_URL = "https://docs.google.com/spreadsheets/d/1-66zj3hjoWeXhrNUk-gPhZjC3mWHDDemSzcwtb7fqyQ/export?format=csv"
+# 2. الرابط المباشر لجدول البيانات
+CSV_URL = "ضع_رابطك_هنا_بصيغة_export?format=csv"
 
-@st.cache_data(ttl=1) # تقليل مدة الكاش لأقل درجة لضمان تحديث البيانات
-def load_data(url):
+@st.cache_data(ttl=5) # تحديث البيانات كل 5 ثوانٍ لضمان عدم التعليق
+def get_data(url):
     try:
         data = pd.read_csv(url)
-        # تنظيف الأعمدة
+        # تنظيف أولي للبيانات
         for col in data.columns:
             data[col] = data[col].astype(str).str.strip()
         return data
     except Exception as e:
-        st.error(f"خطأ في التحميل: {e}")
+        st.error(f"عذراً، فشل تحميل البيانات: {e}")
         return pd.DataFrame()
 
-# 3. تهيئة الجلسة
+# 3. دالة تنظيف النصوص العربية للمقارنة العادلة
+def normalize_text(text):
+    text = str(text).strip()
+    replacements = {"أ": "ا", "إ": "ا", "آ": "ا", "ة": "ه", "  ": " "}
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
+
+# 4. تهيئة متغيرات الجلسة (Session State)
 if 'used_indices' not in st.session_state:
     st.session_state.used_indices = []
-    st.session_state.level = 2
-    st.session_state.score = 0
-    st.session_state.q_count = 0
-    st.session_state.finished = False
+    st.session_state.current_level = 2
+    st.session_state.total_score = 0
+    st.session_state.current_step = 0
+    st.session_state.is_done = False
 
 st.title("🎯 الاختبار التكيفي الذكي")
+all_data = get_data(CSV_URL)
 
-df = load_data(CSV_URL)
+if not all_data.empty:
+    MAX_QUESTIONS = 10 
 
-if not df.empty:
-    TOTAL_Q = 10 
-
-    if not st.session_state.finished and st.session_state.q_count < TOTAL_Q:
-        # تصفية الأسئلة: استبعاد كل ما تم حله سابقاً (منع التكرار القاطع)
-        available_df = df[~df.index.isin(st.session_state.used_indices)]
+    if not st.session_state.is_done and st.session_state.current_step < MAX_QUESTIONS:
+        # استبعاد الأسئلة التي ظهرت سابقاً (منع التكرار)
+        available_questions = all_data[~all_data.index.isin(st.session_state.used_indices)]
         
-        # محاولة اختيار سؤال من المستوى الحالي
-        current_pool = available_df[available_df['level'].astype(str) == str(st.session_state.level)]
+        # اختيار سؤال بناءً على المستوى الحالي
+        level_str = str(st.session_state.current_level)
+        pool = available_questions[available_questions['level'] == level_str]
         
-        # إذا فرغ المستوى، اختر من أي مستوى متاح آخر
-        if current_pool.empty:
-            current_pool = available_df
+        # إذا فرغ المستوى، نسحب من أي سؤال متاح
+        if pool.empty:
+            pool = available_questions
 
-        if not current_pool.empty:
-            # اختيار سؤال عشوائي وتخزين مكانه
-            q_row = current_pool.sample(n=1).iloc[0]
-            idx = q_row.name # رقم السطر الحقيقي في الجدول
-
-            st.write(f"**السؤال {st.session_state.q_count + 1} من {TOTAL_Q}**")
-            st.info(q_row['question'])
-
-            options = [q_row['option1'], q_row['option2'], q_row['option3'], q_row['option4'] ]
+        if not pool.empty:
+            # اختيار سؤال عشوائي
+            question_row = pool.sample(n=1).iloc[0]
+            row_index = question_row.name
             
-            with st.form(key=f"form_{st.session_state.q_count}"):
-                ans = st.radio("اختر الإجابة:", options)
-                submit = st.form_submit_button("إرسال")
+            # --- إظهار مستوى الصعوبة بوضوح ---
+            levels_labels = {"1": "🟢 سهل", "2": "🟡 متوسط", "3": "🔴 صعب"}
+            st.subheader(f"السؤال {st.session_state.current_step + 1} من {MAX_QUESTIONS}")
+            st.markdown(f"**المستوى الحالي:** {levels_labels.get(level_str, level_str)}")
+            
+            st.info(question_row['question'])
+            
+            options = [question_row['option1'], question_row['option2'], question_row['option3'], question_row['option4']]
+            
+            with st.form(key=f"quiz_step_{st.session_state.current_step}"):
+                user_choice = st.radio("اختر الإجابة الصحيحة:", options)
+                submit_btn = st.form_submit_button("تأكيد الإجابة")
 
-            if submit:
-                # 1. منع التكرار: إضافة رقم السطر للذاكرة فوراً
-                st.session_state.used_indices.append(idx)
+            if submit_btn:
+                # منع التكرار القاطع
+                st.session_state.used_indices.append(row_index)
                 
-                # 2. التحقق من الإجابة (تنظيف شامل للمسافات والهمزات)
-                def clean(text):
-                    t = str(text).strip().replace("أ","ا").replace("إ","ا").replace("آ","ا").replace("ة","ه")
-                    return t
-
-                if clean(ans) == clean(q_row['answer']):
-                    st.success("إجابة صحيحة")
-                    st.session_state.score += 1
-                    if st.session_state.level < 3: st.session_state.level += 1
+                # التحقق من الإجابة
+                if normalize_text(user_choice) == normalize_text(question_row['answer']):
+                    st.success("إجابة صحيحة! سيتم رفع المستوى.")
+                    st.session_state.total_score += 1
+                    if st.session_state.current_level < 3: st.session_state.current_level += 1
                 else:
-                    st.error(f"إجابة خاطئة. الصحيح: {q_row['answer']}")
-                    if st.session_state.level > 1: st.session_state.level -= 1
+                    st.error(f"إجابة خاطئة. الإجابة الصحيحة هي: {question_row['answer']}")
+                    if st.session_state.current_level > 1: st.session_state.current_level -= 1
                 
-                st.session_state.q_count += 1
+                st.session_state.current_step += 1
                 st.rerun()
         else:
-            st.session_state.finished = True
+            st.session_state.is_done = True
             st.rerun()
     else:
         st.balloons()
-        st.success(f"انتهى الاختبار! درجتك: {st.session_state.score} من {st.session_state.q_count}")
+        st.header("🏁 النتيجة النهائية")
+        st.metric("عدد الإجابات الصحيحة", f"{st.session_state.total_score} من {MAX_QUESTIONS}")
         if st.button("إعادة الاختبار"):
             st.session_state.clear()
             st.rerun()
